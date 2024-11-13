@@ -2,9 +2,10 @@ import numpy as np
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.cluster import KMeans
 from sklearn.pipeline import Pipeline
+import matplotlib.pyplot as plt
 
 
-def LDA_KM_DA(predInit, xTest, eps=0.01, yTest=None, maxEpochs=100):
+def LDA_KM_DA(predInit, xTest, eps=0.01, yTest=None, maxEpochs=100, plotResults=False):
     """
     Implements the LDA-KM-DA algorithm for unsupervised structure-based non-conservative domain adaptation
     :param predInit: initial prediction of pseudo-labels (should be obtained by a source classifier)
@@ -14,6 +15,8 @@ def LDA_KM_DA(predInit, xTest, eps=0.01, yTest=None, maxEpochs=100):
     :param maxEpochs: maximum number of iterations of the pseudo labels refinement
     :return: a fitted classifier, adapted for the target domain
     """
+    projEvol = []
+    predEvol = []
     pred = predInit
     lastPred = predInit
     diff = 1
@@ -27,27 +30,39 @@ def LDA_KM_DA(predInit, xTest, eps=0.01, yTest=None, maxEpochs=100):
             newProj = lda.transform(xTest)
             pred = KMeans(n_clusters=nclasses, n_init=1,
                           init=[np.mean(newProj[pred == x], axis=0) for x in range(nclasses)]).fit(newProj).labels_
+            if plotResults:
+                projEvol.append(newProj)
+                predEvol.append(pred)
             diff = np.mean(lastPred != pred)
             lastPred = pred
             epochsCount += 1
             if yTest is not None:
-               print(f"Adapted accuracy after {epochsCount} iterations :", np.mean(pred == yTest))
+                print(f"Adapted accuracy after {epochsCount} iterations :", np.mean(pred == yTest))
         except Exception as e:
             print(e)
             break
     nclasses = len(np.unique(pred))
     finalLDA = LDA(n_components=nclasses - 1, shrinkage="auto", solver="eigen").fit(xTest, pred)
     finalProj = finalLDA.transform(xTest)
-    finalKMeans = KMeans(n_clusters=nclasses, n_init=1, init=[np.mean(finalProj[pred == x], axis=0) for x in range(nclasses)]).fit(finalProj)
+    finalKMeans = KMeans(n_clusters=nclasses, n_init=1,
+                         init=[np.mean(finalProj[pred == x], axis=0) for x in range(nclasses)]).fit(finalProj)
     cl = Pipeline([("lda", finalLDA),
                    ("K-means", finalKMeans)])
+
+    if plotResults and yTest is not None:
+        fig, ax = plt.subplots(2, len(predEvol), figsize=(5*len(predEvol), 10))
+        for i in range(len(predEvol)):
+            ax[0, i].scatter(projEvol[i][:, 0], projEvol[i][:, 1], c=predEvol[i])
+            ax[1, i].scatter(projEvol[i][:, 0], projEvol[i][:, 1], c=yTest)
+            ax[0, i].set_title(f"Iteration {i+1}\naccuracy={np.mean(predEvol[i] == yTest)*100}%")
+            ax[1, i].set_title("Real labels")
+        plt.show()
     return cl
 
 
 if __name__ == "__main__":
     # test of LDA-KM-DA with synthetic data
     from sklearn.datasets import make_classification
-    import matplotlib.pyplot as plt
     from sklearn.linear_model import LogisticRegression
     from sklearn.model_selection import KFold, cross_val_predict
     import pandas as pd
@@ -55,7 +70,7 @@ if __name__ == "__main__":
     from sklearn.preprocessing import StandardScaler, normalize
     from autorank import autorank, plot_stats
 
-    nSubjects = 20
+    nSubjects = 30
 
     x, y = make_classification(random_state=42,
                                n_samples=nSubjects * 1000,
@@ -65,22 +80,20 @@ if __name__ == "__main__":
                                n_repeated=5,
                                n_classes=3,
                                n_clusters_per_class=1,
-                               class_sep=1.0)
+                               class_sep=0.6) # change this value to modify the difficulty of the adaptation
     x = x.reshape((nSubjects, 1000, 20))
     y = y.reshape((nSubjects, 1000))
 
-    #domain shift
+    # domain shift
     for i in range(nSubjects):
         for c in range(3):
-            x[i][y[i] == c] += (np.random.random(20) *2 -1) * 2
+            x[i][y[i] == c] += (np.random.random(20) * 2 - 1) * 2
 
-    #normalization
+    # normalization
     for i in range(len(x)):
         x[i] = normalize(x[i])
         x[i] = StandardScaler().fit_transform(x[i])
 
-
-    print(x.shape, y.shape)
     lda = LDA(n_components=2, shrinkage="auto", solver="eigen").fit(np.concatenate(x), np.concatenate(y))
 
     p = lda.transform(np.concatenate(x))
@@ -105,18 +118,20 @@ if __name__ == "__main__":
         cl = LogisticRegression("l2", solver="liblinear").fit(np.concatenate(x[train]), np.concatenate(y[train]))
         pred = cl.predict(x[test])
 
-        ldakmda = LDA_KM_DA(pred, x[test], eps=0.01, yTest=y[test], maxEpochs=100)
+        ldakmda = LDA_KM_DA(pred, x[test], eps=0.01, yTest=y[test], maxEpochs=100, plotResults=True)
         pred2 = ldakmda.predict(x[test])
 
         accCross.append(np.mean(y[test] == pred))
         accUDA.append(np.mean(y[test] == pred2))
 
-        predIntra = cross_val_predict(LogisticRegression("l2", solver="liblinear"), x[test], y[test], cv=KFold(n_splits=5, shuffle=False))
+        predIntra = cross_val_predict(LogisticRegression("l2", solver="liblinear"), x[test], y[test],
+                                      cv=KFold(n_splits=5, shuffle=False))
         accIntra.append(np.mean(y[test] == predIntra))
 
         print(accCross[-1], " -> ", accUDA[-1], " / ", accIntra[-1])
 
-    scoreDF = pd.DataFrame({"Cross-subjects\nwith normalization":accCross, "LDA-KM-DA":accUDA, "Intra-subject":accIntra})
+    scoreDF = pd.DataFrame(
+        {"Cross-subjects\nwith normalization": accCross, "LDA-KM-DA": accUDA, "Intra-subject": accIntra})
     sn.boxplot(scoreDF)
     plt.show()
 
