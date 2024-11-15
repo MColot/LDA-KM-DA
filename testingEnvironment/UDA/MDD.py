@@ -124,7 +124,7 @@ if __name__ == "__main__":
         print(accCross[-1], " -> ", accUDA[-1], " / ", accIntra[-1])
 
     scoreDF = pd.DataFrame(
-        {"Cross-subjects\nwith normalization": accCross, "LDA-KM-DA": accUDA, "Intra-subject": accIntra})
+        {"Cross-subjects\nwith normalization": accCross, "MDD": accUDA, "Intra-subject": accIntra})
     sn.boxplot(scoreDF)
     plt.show()
 
