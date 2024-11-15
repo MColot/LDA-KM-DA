@@ -18,6 +18,7 @@ import numpy as np
 
 from dataLoader import load_ninaproDB4, load_ToroOssaba, load_EMG_EPN_612
 from timeDomainFeatures import computeTDF, normalizeTDF
+from UDA.MDD import fit_MDD
 
 # ------------ PARAMETERS ------------------------------------------------------------------------------
 
@@ -134,11 +135,31 @@ if "Normalization" in testModels:
             cl = LogisticRegression('l2', solver="liblinear").fit(tsTrain, np.concatenate(Y[train].astype(int)))
             score.append(np.mean(Y[test].astype(int) == cl.predict(tsTest)))
         print(test, score[-1])
-    print("average score Cross-subject :", np.mean(score))
-    scores["Cross-subject"] = score
+    print("average score normalization :", np.mean(score))
+    scores["Normalization"] = score
 
 if "MDD" in testModels:
-    pass
+    score = []
+    for test in range(len(X)):
+        train = np.arange(len(X))
+        train = np.delete(train, test)
+        if testFeatures == "TDF":
+            cl = fit_MDD(np.concatenate(tdfX_n[train]), np.concatenate(Y[train]).astype(int), tdfX_n[test], hidden=50, epochs=10)
+            score.append(np.mean(Y[test].astype(int) == cl.predict(tdfX_n[test])))
+        if testFeatures == "CMTS":
+            cl = fit_MDD(np.concatenate(cmtsX[train]), np.concatenate(Y[train]).astype(int), cmtsX[test], hidden=50, epochs=10)
+            score.append(np.mean(Y[test].astype(int) == cl.predict(cmtsX[test])))
+        elif testFeatures == "Xdawn CMTS":
+            cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train].astype(int)))
+            xTrain = [cov.transform(x) for x in X[train]]
+            xTest = cov.transform(X[test])
+            tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
+            tsTest = TangentSpace('riemann').fit_transform(xTest)
+            cl = fit_MDD(tsTrain, np.concatenate(Y[train]).astype(int), tsTest, hidden=50, epochs=10)
+            score.append(np.mean(Y[test].astype(int) == cl.predict(tsTest)))
+        print(test, score[-1])
+    print("average score MDD :", np.mean(score))
+    scores["MDD"] = score
 
 if "CDEM" in testModels:
     pass
