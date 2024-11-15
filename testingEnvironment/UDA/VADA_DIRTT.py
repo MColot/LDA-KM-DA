@@ -1,3 +1,13 @@
+"""
+Implementation of the VADA and DIRT-T algorithm in Python, based on their public implementation available on https://github.com/RuiShu/dirt-t
+Adaptation of the code to work with custom datasets and using custom neural networks
+
+Dependency : numpy, sklearn, argparse, pathlib, tensorflow, tensorbayes, contextlib
+Dependency for testing on synthetic data : pandas, seaborn, matplotlib, autorank
+
+Author : Martin Colot
+"""
+
 import argparse
 from DIRTT_codebase import args as codebase_args
 import tensorflow as tf

@@ -1,9 +1,7 @@
 import tensorflow as tf
 from DIRTT_codebase.args import args
 from DIRTT_codebase.models.extra_layers import leaky_relu, noise, logistic
-from tensorbayes.layers import dense, conv2d, avg_pool, max_pool, batch_norm, instance_norm
-from tensorflow.python.layers.core import dropout
-from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, AveragePooling2D, BatchNormalization
+from tensorbayes.layers import dense, conv2d, batch_norm
 from contextlib import contextmanager
 
 @contextmanager

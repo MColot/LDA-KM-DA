@@ -4,7 +4,6 @@ import tensorbayes as tb
 import numpy as np
 from .extra_layers import basic_accuracy, vat_loss
 from DIRTT_codebase.args import args
-from pprint import pprint
 from tensorbayes.tfutils import softmax_cross_entropy_with_two_logits as softmax_xent_two
 from tensorbayes.layers import placeholder, constant
 from tensorflow.nn import softmax_cross_entropy_with_logits as softmax_xent
