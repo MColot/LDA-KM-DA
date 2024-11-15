@@ -44,10 +44,10 @@ def VADA_DIRTT(xs, ys, xt, yt, nclasses, saveDirectory, dirt = 0, lr = 0.001, tw
     #parameters values from DIRT-T paper
     args.inorm = 1
     args.radius = 3.5
-    args.dw = 1e-2 #1e-2    # importance of adversarial loss between source and target (only in VADA)
-    args.bw = 0.01 #1e-2     # importance of classifier error on sources in DIRT-T (for VADA, bw is set to 1)
-    args.sw = 0             # how much the classifier should be stable on sources sable with respect to small perturbations (only during VADA)
-    args.tw = tw #1e-2     # how much the classifier should be stable on target samples with respect to small perturbations
+    args.dw = 1e-2 # importance of adversarial loss between source and target (only in VADA)
+    args.bw = 1e-2  # importance of classifier error on sources in DIRT-T (for VADA, bw is set to 1)
+    args.sw = 0 # how much the classifier should be stable on sources sable with respect to small perturbations (only during VADA)
+    args.tw = tw  # how much the classifier should be stable on target samples with respect to small perturbations
     args.run = 999
     args.logdir = "log"
 
