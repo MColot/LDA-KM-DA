@@ -15,11 +15,13 @@ from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score, KFold
 import numpy as np
+import tensorflow as tf
 
 from dataLoader import load_ninaproDB4, load_ToroOssaba, load_EMG_EPN_612
 from timeDomainFeatures import computeTDF, normalizeTDF
 from UDA.MDD import fit_MDD
 from UDA.CDEM import CDEM
+from UDA.VADA_DIRTT import VADA_DIRTT
 
 # ------------ PARAMETERS ------------------------------------------------------------------------------
 
@@ -45,6 +47,8 @@ models = {0: "Intra-subject",
           8: "MDD -> LDA-KM-DA",
           9: "Simplified CDEM -> LDA-KM-DA"}
 testModels = [models[0], models[1], models[2], models[7]]  # change this to choose which model to evaluate
+
+saveDirectoryDIRTT = None #set this directory to run VADA and DIRT-T. The VADA network will be saved at this location before being used to initialize DIRT-T
 
 # -------------- EVALUATION ----------------------------------------------------------------------------
 
@@ -222,7 +226,45 @@ if "Simplified CDEM" in testModels:
     scores["simplified CDEM"] = score
 
 if "VADA and DIRT-T" in testModels:
-    pass
+    assert saveDirectoryDIRTT is not None
+    lr = 0.01
+    nClasses = np.unique(Y[0])
+    scoreVADA = []
+    scoreDIRTT = []
+    for test in range(len(X)):
+        train = np.arange(len(X))
+        train = np.delete(train, test)
+        if testFeatures == "TDF":
+            tf.compat.v1.reset_default_graph()
+            vadaModel, predVada = VADA_DIRTT(np.concatenate(tdfX_n[train]), np.concatenate(Y[train]).astype(int), tdfX_n[test], Y[test].astype(int), nClasses, saveDirectoryDIRTT, 0, lr, 0.01, 5, 1000)
+            tf.compat.v1.reset_default_graph()
+            dirttModel, predDirtt = VADA_DIRTT(np.concatenate(tdfX_n[train]), np.concatenate(Y[train]).astype(int), tdfX_n[test], Y[test].astype(int), nClasses, saveDirectoryDIRTT, 5000, lr, 0.01, 10, 1000)
+            scoreVADA.append(np.mean(Y[test].astype(int) == predVada))
+            scoreDIRTT.append(np.mean(Y[test].astype(int) == predDirtt))
+        if testFeatures == "CMTS":
+            tf.compat.v1.reset_default_graph()
+            vadaModel, predVada = VADA_DIRTT(np.concatenate(cmtsX[train]), np.concatenate(Y[train]).astype(int), cmtsX[test], Y[test].astype(int), nClasses, saveDirectoryDIRTT, 0, lr, 0.01, 5, 1000)
+            tf.compat.v1.reset_default_graph()
+            dirttModel, predDirtt = VADA_DIRTT(np.concatenate(cmtsX[train]), np.concatenate(Y[train]).astype(int), cmtsX[test], Y[test].astype(int), nClasses, saveDirectoryDIRTT, 5000, lr, 0.01, 10, 1000)
+            scoreVADA.append(np.mean(Y[test].astype(int) == predVada))
+            scoreDIRTT.append(np.mean(Y[test].astype(int) == predDirtt))
+        elif testFeatures == "Xdawn CMTS":
+            cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train].astype(int)))
+            xTrain = [cov.transform(x) for x in X[train]]
+            xTest = cov.transform(X[test])
+            tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
+            tsTest = TangentSpace('riemann').fit_transform(xTest)
+            tf.compat.v1.reset_default_graph()
+            vadaModel, predVada = VADA_DIRTT(tsTrain, np.concatenate(Y[train]).astype(int), tsTest, Y[test].astype(int), nClasses, saveDirectoryDIRTT, 0, lr, 0.01, 5, 1000)
+            tf.compat.v1.reset_default_graph()
+            dirttModel, predDirtt = VADA_DIRTT(tsTrain, np.concatenate(Y[train]).astype(int), tsTest, Y[test].astype(int), nClasses, saveDirectoryDIRTT, 5000, lr, 0.01, 10, 1000)
+            scoreVADA.append(np.mean(Y[test].astype(int) == predVada))
+            scoreDIRTT.append(np.mean(Y[test].astype(int) == predDirtt))
+        print(test, scoreVADA[-1], scoreDIRTT[-1])
+    print("average score VADA :", np.mean(scoreVADA))
+    print("average score DIRT-T :", np.mean(scoreDIRTT))
+    scores["VADA"] = scoreVADA
+    scores["DIRT-T"] = scoreDIRTT
 
 if "LDA-KM-DA" in testModels:
     pass
