@@ -19,6 +19,7 @@ import numpy as np
 from dataLoader import load_ninaproDB4, load_ToroOssaba, load_EMG_EPN_612
 from timeDomainFeatures import computeTDF, normalizeTDF
 from UDA.MDD import fit_MDD
+from UDA.CDEM import CDEM
 
 # ------------ PARAMETERS ------------------------------------------------------------------------------
 
@@ -39,12 +40,11 @@ models = {0: "Intra-subject",
           3: "MDD",
           4: "CDEM",
           5: "Simplified CDEM",
-          6: "VADA",
-          7: "DIRT-T",
-          8: "LDA-KM-DA",
-          9: "MDD -> LDA-KM-DA",
-          10: "Simplified CDEM -> LDA-KM-DA"}
-testModels = [models[0], models[1], models[2], models[8]]  # change this to choose which model to evaluate
+          6: "VADA and DIRT-T", # DIRT-T is ran after VADA
+          7: "LDA-KM-DA",
+          8: "MDD -> LDA-KM-DA",
+          9: "Simplified CDEM -> LDA-KM-DA"}
+testModels = [models[0], models[1], models[2], models[7]]  # change this to choose which model to evaluate
 
 # -------------- EVALUATION ----------------------------------------------------------------------------
 
@@ -162,15 +162,66 @@ if "MDD" in testModels:
     scores["MDD"] = score
 
 if "CDEM" in testModels:
-    pass
+    options = {
+        'beta': 1,
+        'lambda': 1,
+        'gamma': 0.5,
+        'eta': 0.0001,
+        'sigma': 0.1
+    }
+    score = []
+    for test in range(len(X)):
+        train = np.arange(len(X))
+        train = np.delete(train, test)
+        if testFeatures == "TDF":
+            pred = CDEM(np.concatenate(tdfX_n[train]), np.concatenate(Y[train]).astype(int), tdfX_n[test], Y[test].astype(int), 10, 10, False, options)
+            score.append(np.mean(Y[test].astype(int) == pred))
+        if testFeatures == "CMTS":
+            pred = CDEM(np.concatenate(cmtsX[train]), np.concatenate(Y[train]).astype(int), cmtsX[test], Y[test].astype(int), 10, 10, False, options)
+            score.append(np.mean(Y[test].astype(int) == pred))
+        elif testFeatures == "Xdawn CMTS":
+            cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train].astype(int)))
+            xTrain = [cov.transform(x) for x in X[train]]
+            xTest = cov.transform(X[test])
+            tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
+            tsTest = TangentSpace('riemann').fit_transform(xTest)
+            pred = CDEM(tsTrain, np.concatenate(Y[train]).astype(int), tsTest, Y[test].astype(int), 10, 10, False, options)
+            score.append(np.mean(Y[test].astype(int) == pred))
+        print(test, score[-1])
+    print("average score CDEM :", np.mean(score))
+    scores["CDEM"] = score
 
 if "Simplified CDEM" in testModels:
-    pass
+    options = {
+        'beta': 1,
+        'lambda': 1,
+        'gamma': 0.5,
+        'eta': 0.0001,
+        'sigma': 0.1
+    }
+    score = []
+    for test in range(len(X)):
+        train = np.arange(len(X))
+        train = np.delete(train, test)
+        if testFeatures == "TDF":
+            pred = CDEM(np.concatenate(tdfX_n[train]), np.concatenate(Y[train]).astype(int), tdfX_n[test], Y[test].astype(int), 10, 10, True, options)
+            score.append(np.mean(Y[test].astype(int) == pred))
+        if testFeatures == "CMTS":
+            pred = CDEM(np.concatenate(cmtsX[train]), np.concatenate(Y[train]).astype(int), cmtsX[test], Y[test].astype(int), 10, 10, True, options)
+            score.append(np.mean(Y[test].astype(int) == pred))
+        elif testFeatures == "Xdawn CMTS":
+            cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train].astype(int)))
+            xTrain = [cov.transform(x) for x in X[train]]
+            xTest = cov.transform(X[test])
+            tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
+            tsTest = TangentSpace('riemann').fit_transform(xTest)
+            pred = CDEM(tsTrain, np.concatenate(Y[train]).astype(int), tsTest, Y[test].astype(int), 10, 10, True, options)
+            score.append(np.mean(Y[test].astype(int) == pred))
+        print(test, score[-1])
+    print("average score simplified CDEM :", np.mean(score))
+    scores["simplified CDEM"] = score
 
-if "VADA" in testModels:
-    pass
-
-if "DIRT_T" in testModels:
+if "VADA and DIRT-T" in testModels:
     pass
 
 if "LDA-KM-DA" in testModels:
