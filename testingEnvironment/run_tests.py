@@ -63,9 +63,6 @@ tdfX_n = normalizeTDF(tdfX)  # normalized TDF features
 pipelineCMTS = Pipeline(
             [('cov', Covariances(estimator='oas')),
              ('ts', TangentSpace('riemann'))])
-pipelineXdawnCMTS = Pipeline(
-            [('cov', XdawnCovariances(nfilter=3, estimator='oas')),
-             ('ts', TangentSpace('riemann'))])
 cmtsX = np.array([pipelineCMTS.fit_transform(X[s]) for s in range(len(X))], dtype=object) # normalized CMTS features
 
 scores = dict()
@@ -79,20 +76,66 @@ if "Intra-subject" in testModels:
         elif testFeatures == "CMTS":
             score.append(cross_val_score(LogisticRegression('l2', solver="liblinear"), cmtsX[s], Y[s].astype(int), cv=KFold(n_splits=5, shuffle=False)))
         elif testFeatures == "Xdawn CMTS":
-            pipeline = Pipeline(
+            pipelineXdawnCMTS = Pipeline(
                 [('cov', XdawnCovariances(nfilter=3, estimator='oas')),
                  ('ts', TangentSpace('riemann')),
                  ("lr", LogisticRegression('l2', solver="liblinear"))])
-            score.append(cross_val_score(pipeline, X[s], Y[s].astype(int), cv=KFold(n_splits=5, shuffle=False)))
+            score.append(cross_val_score(pipelineXdawnCMTS, X[s], Y[s].astype(int), cv=KFold(n_splits=5, shuffle=False)))
         print(s, score[-1])
     print("average score Intra-subject :", np.mean(score))
     scores["Intra-subject"] = score
 
 if "Cross-subject" in testModels:
-    pass
+    score = []
+    for test in range(len(X)):
+        train = np.arange(len(X))
+        train = np.delete(train, test)
+        if testFeatures == "TDF":
+            cl = LogisticRegression('l2', solver="liblinear")
+            cl.fit(np.concatenate([x for x in tdfX[train]]),  np.concatenate([y for y in Y[train]]).astype(int))
+            score.append(np.mean(Y[test].astype(int) == cl.predict(tdfX[test])))
+        elif testFeatures == "CMTS":
+            cl = Pipeline(
+                [('cov', Covariances(estimator='oas')),
+                 ('ts', TangentSpace('riemann')),
+                 ('lr', LogisticRegression('l2', solver="liblinear"))])
+            cl.fit(np.concatenate([x for x in X[train]]), np.concatenate([y for y in Y[train]]).astype(int))
+            score.append(np.mean(Y[test].astype(int) == cl.predict(X[test])))
+        elif testFeatures == "Xdawn CMTS":
+            cl = Pipeline(
+                [('cov', XdawnCovariances(nfilter=3, estimator='oas')),
+                 ('ts', TangentSpace('riemann')),
+                 ("lr", LogisticRegression('l2', solver="liblinear"))])
+            cl.fit(np.concatenate([x for x in X[train]]), np.concatenate([y for y in Y[train]]).astype(int))
+            score.append(np.mean(Y[test].astype(int) == cl.predict(X[test])))
+        print(test, score[-1])
+    print("average score Cross-subject :", np.mean(score))
+    scores["Cross-subject"] = score
 
 if "Normalization" in testModels:
-    pass
+    score = []
+    for test in range(len(X)):
+        train = np.arange(len(X))
+        train = np.delete(train, test)
+        if testFeatures == "TDF":
+            cl = LogisticRegression('l2', solver="liblinear")
+            cl.fit(np.concatenate([x for x in tdfX_n[train]]), np.concatenate([y for y in Y[train]]).astype(int))
+            score.append(np.mean(Y[test].astype(int) == cl.predict(tdfX_n[test])))
+        if testFeatures == "CMTS":
+            cl = LogisticRegression('l2', solver="liblinear")
+            cl.fit(np.concatenate([x for x in cmtsX[train]]), np.concatenate([y for y in Y[train]]).astype(int))
+            score.append(np.mean(Y[test].astype(int) == cl.predict(cmtsX[test])))
+        elif testFeatures == "Xdawn CMTS":
+            cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train].astype(int)))
+            xTrain = [cov.transform(x) for x in X[train]]
+            xTest = cov.transform(X[test])
+            tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
+            tsTest = TangentSpace('riemann').fit_transform(xTest)
+            cl = LogisticRegression('l2', solver="liblinear").fit(tsTrain, np.concatenate(Y[train].astype(int)))
+            score.append(np.mean(Y[test].astype(int) == cl.predict(tsTest)))
+        print(test, score[-1])
+    print("average score Cross-subject :", np.mean(score))
+    scores["Cross-subject"] = score
 
 if "MDD" in testModels:
     pass
