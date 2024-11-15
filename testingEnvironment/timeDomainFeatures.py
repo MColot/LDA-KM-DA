@@ -1,12 +1,13 @@
 """
 Implementation of time domain features, extracted from EMG signals
 
-Dependency : numpy
+Dependency : numpy, sklearn
 
 Author : Martin Colot
 """
 
 import numpy as np
+from sklearn.preprocessing import StandardScaler, normalize
 
 def MAV(x):
     """
@@ -62,6 +63,7 @@ def KRT(x):
     """
     return np.mean((x - np.mean(x, axis=2).reshape((len(x), len(x[0]), 1)))**4 / np.std(x, axis=2).reshape((len(x), len(x[0]), 1))**4, axis=2)
 
+
 def computeTDF(X):
     """
     compute 9 Time Domain Features for each channel of each sample of subject in the dataset X
@@ -72,3 +74,15 @@ def computeTDF(X):
     tdfX = [np.concatenate(np.array([f(x) for f in TDF]), axis=1) for x in X]
     tdfX = np.array(tdfX, dtype="object")
     return tdfX
+
+def normalizeTDF(tdfX):
+    """
+    normalize time domain features as defined in the paper, applying l2 normalization and standardization
+    :param tdfX: features vectors to normalize of shape (n_subjects, n_samples, n_channels * 9)
+    :return: normalized features vectors per subject
+    """
+    tdfX_n = tdfX.copy()
+    for i in range(len(tdfX)):
+      tdfX_n[i] = normalize(tdfX_n[i])
+      tdfX_n[i] = StandardScaler().fit_transform(tdfX_n[i])
+    return tdfX_n
