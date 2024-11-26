@@ -1,7 +1,7 @@
 import tensorflow.compat.v1 as tf
 import tensorbayes as tb
-from DIRTT_codebase.args import args
-from DIRTT_codebase.datasets_2 import PseudoData
+from .args import args
+from .datasets_2 import PseudoData
 from .utils import delete_existing, save_value, save_model
 import os
 import numpy as np
@@ -26,7 +26,7 @@ def update_dict(M, feed_dict, src=None, trg=None, bs=100):
         trg_x, trg_y = trg.train.next_batch(bs)
         feed_dict.update({M.trg_x: trg_x, M.trg_y: trg_y})
 
-def train(M, saveDirectory, src=None, trg=None, has_disc=True, iterep=10, n_epoch=20, bs=64, saver=None):
+def train(M, saveDirectory, src=None, trg=None, has_disc=True, iterep=10, n_epoch=20, bs=64, saver=None, args=None):
     """Main training function
 
     Creates log file, manages datasets, trains model
@@ -55,9 +55,9 @@ def train(M, saveDirectory, src=None, trg=None, has_disc=True, iterep=10, n_epoc
         os.makedirs(model_dir)"""
 
     # Replace src domain with pseudolabeled trg
-    if args.dirt > 0:
+    if args["dirt"] > 0:
         print("Setting backup and updating backup model")
-        src = PseudoData(args.trg, trg, M.teacher)
+        src = PseudoData(args["trg"], trg, M.teacher)
         M.sess.run(M.update_teacher)
 
         # Sanity check model
@@ -93,10 +93,10 @@ def train(M, saveDirectory, src=None, trg=None, has_disc=True, iterep=10, n_epoc
 
         end_epoch, epoch = tb.utils.progbar(i, iterep,
                                             message='{}/{}'.format(epoch, i),
-                                            display=args.run >= 999)
+                                            display=args["run"] >= 999)
 
         # Update pseudolabeler
-        if args.dirt and (i + 1) % args.dirt == 0:
+        if args["dirt"] and (i + 1) % args["dirt"] == 0:
             print("Updating teacher model")
             M.sess.run(M.update_teacher)
 

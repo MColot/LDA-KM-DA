@@ -1,7 +1,7 @@
 import tensorflow as tf
 import tensorbayes as tb
 import numpy as np
-from DIRTT_codebase.args import args
+from ..args import args
 from tensorbayes.tfutils import softmax_cross_entropy_with_two_logits as softmax_xent_two
 from tensorflow.python.framework import ops
 
@@ -43,12 +43,12 @@ def basic_accuracy(a, b, scope=None):
     return output
 
 
-def perturb_image(x, p, classifier, pert='vat', scope=None):
+def perturb_image(x, p, classifier, pert='vat', scope=None, args=None):
     with tf.name_scope(scope or 'perturb_image'):
         eps = 1e-6 * normalize_perturbation(tf.random.normal(shape=tf.shape(x)))
 
         # Predict on randomly perturbed image
-        eps_p = classifier(x + eps, phase=True, reuse=True)
+        eps_p = classifier(x + eps, phase=True, reuse=True, args=args)
         loss = softmax_xent_two(labels=p, logits=eps_p)
 
         # Based on perturbed image, get direction of greatest error
@@ -56,15 +56,15 @@ def perturb_image(x, p, classifier, pert='vat', scope=None):
 
         # Use that direction as adversarial perturbation
         eps_adv = normalize_perturbation(eps_adv)
-        x_adv = tf.stop_gradient(x + args.radius * eps_adv)
+        x_adv = tf.stop_gradient(x + args["radius"] * eps_adv)
 
     return x_adv
 
 
-def vat_loss(x, p, classifier, scope=None):
+def vat_loss(x, p, classifier, scope=None, args=None):
     with tf.name_scope(scope or 'smoothing_loss'):
-        x_adv = perturb_image(x, p, classifier)
-        p_adv = classifier(x_adv, phase=True, reuse=True)
+        x_adv = perturb_image(x, p, classifier, args=args)
+        p_adv = classifier(x_adv, phase=True, reuse=True, args=args)
         loss = tf.reduce_mean(softmax_xent_two(labels=tf.stop_gradient(p), logits=p_adv))
 
     return loss

@@ -15,14 +15,15 @@ from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score, KFold
 import numpy as np
-import tensorflow as tf
 
 from testingEnvironment.dataLoader import load_ninaproDB4, load_ToroOssaba, load_EMG_EPN_612
 from testingEnvironment.timeDomainFeatures import computeTDF, normalizeTDF
 from testingEnvironment.UDA.MDD import fit_MDD
 from testingEnvironment.UDA.CDEM import CDEM
+
 from testingEnvironment.UDA.VADA_DIRTT import VADA_DIRTT
 from ldaKmDa import LDA_KM_DA
+import tensorflow as tf
 
 
 # ------------ PARAMETERS ------------------------------------------------------------------------------
@@ -33,10 +34,10 @@ pathToToroOssaba = None
 pathToEmgEpn612 = None
 
 datasets = ["ninaproDB4", "ToroOssaba", "EMG_EPN_612"]
-testDataset = datasets[0]  # Edit this to change the test dataset
+testDataset = datasets[1]  # Edit this to change the test dataset
 
 featureSets = ["TDF", "CMTS", "Xdawn CMTS"]
-testFeatures = featureSets[0]  # Edit this to change the feature sets used
+testFeatures = featureSets[1]  # Edit this to change the feature sets used
 
 models = {0: "Intra-subject",
           1: "Cross-subject",
@@ -44,11 +45,12 @@ models = {0: "Intra-subject",
           3: "MDD",
           4: "CDEM",
           5: "Simplified CDEM",
-          6: "VADA and DIRT-T", # DIRT-T is ran after VADA
+          6: "VADA and DIRT-T", # DIRT-T is applied after VADA
           7: "LDA-KM-DA",
           8: "MDD -> LDA-KM-DA",
           9: "Simplified CDEM -> LDA-KM-DA"}
 testModels = [models[0], models[1], models[2], models[7]]  # change this to choose which model to evaluate
+
 
 saveDirectoryDIRTT = None #set this directory to run VADA and DIRT-T. The VADA network will be saved at this location before being used to initialize DIRT-T
 
@@ -79,9 +81,9 @@ if "Intra-subject" in testModels:
     for s in range(len(X)):
         features = None
         if testFeatures == "TDF":
-            score.append(cross_val_score(LogisticRegression('l2', solver="liblinear"), tdfX_n[s], Y[s].astype(int), cv=KFold(n_splits=5, shuffle=False)))
+            score.append(cross_val_score(LogisticRegression('l2', solver="liblinear"), tdfX_n[s], Y[s].astype(int), cv=KFold(n_splits=5, shuffle=True))) # set shuffle to false when using sliding windows
         elif testFeatures == "CMTS":
-            score.append(cross_val_score(LogisticRegression('l2', solver="liblinear"), cmtsX[s], Y[s].astype(int), cv=KFold(n_splits=5, shuffle=False)))
+            score.append(cross_val_score(LogisticRegression('l2', solver="liblinear"), cmtsX[s], Y[s].astype(int), cv=KFold(n_splits=5, shuffle=True))) # set shuffle to false when using sliding windows
         elif testFeatures == "Xdawn CMTS":
             pipelineXdawnCMTS = Pipeline(
                 [('cov', XdawnCovariances(nfilter=3, estimator='oas')),
@@ -151,10 +153,10 @@ if "MDD" in testModels:
         train = np.delete(train, test)
         if testFeatures == "TDF":
             cl = fit_MDD(np.concatenate(tdfX_n[train]), np.concatenate(Y[train]).astype(int), tdfX_n[test], hidden=50, epochs=10)
-            score.append(np.mean(Y[test].astype(int) == cl.predict(tdfX_n[test])))
+            score.append(np.mean(Y[test].astype(int) == np.argmax(cl.predict(tdfX_n[test]), axis=1)))
         if testFeatures == "CMTS":
             cl = fit_MDD(np.concatenate(cmtsX[train]), np.concatenate(Y[train]).astype(int), cmtsX[test], hidden=50, epochs=10)
-            score.append(np.mean(Y[test].astype(int) == cl.predict(cmtsX[test])))
+            score.append(np.mean(Y[test].astype(int) == np.argmax(cl.predict(cmtsX[test]), axis=1)))
         elif testFeatures == "Xdawn CMTS":
             cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train].astype(int)))
             xTrain = [cov.transform(x) for x in X[train]]
@@ -162,7 +164,7 @@ if "MDD" in testModels:
             tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
             tsTest = TangentSpace('riemann').fit_transform(xTest)
             cl = fit_MDD(tsTrain, np.concatenate(Y[train]).astype(int), tsTest, hidden=50, epochs=10)
-            score.append(np.mean(Y[test].astype(int) == cl.predict(tsTest)))
+            score.append(np.mean(Y[test].astype(int) == np.argmax(cl.predict(tsTest), axis=1)))
         print(test, score[-1])
     print("average score MDD :", np.mean(score))
     scores["MDD"] = score
@@ -230,7 +232,7 @@ if "Simplified CDEM" in testModels:
 if "VADA and DIRT-T" in testModels:
     assert saveDirectoryDIRTT is not None
     lr = 0.01
-    nClasses = np.unique(Y[0])
+    nClasses = len(np.unique(Y[0]))
     scoreVADA = []
     scoreDIRTT = []
     for test in range(len(X)):
@@ -306,12 +308,12 @@ if "MDD -> LDA-KM-DA" in testModels:
         train = np.delete(train, test)
         if testFeatures == "TDF":
             cl = fit_MDD(np.concatenate(tdfX_n[train]), np.concatenate(Y[train]).astype(int), tdfX_n[test], hidden=50, epochs=10)
-            pseudoLabels = cl.predict(tdfX_n[test])
+            pseudoLabels = np.argmax(cl.predict(tdfX_n[test]), axis=1)
             cl = LDA_KM_DA(pseudoLabels, tdfX_n[test], eps=0.01, yTest=Y[test].astype(int), maxEpochs=100, plotResults=False)
             score.append(np.mean(Y[test].astype(int) == cl.predict(tdfX_n[test])))
         if testFeatures == "CMTS":
             cl = fit_MDD(np.concatenate(cmtsX[train]), np.concatenate(Y[train]).astype(int), cmtsX[test], hidden=50, epochs=10)
-            pseudoLabels = cl.predict(cmtsX[test])
+            pseudoLabels = np.argmax(cl.predict(cmtsX[test]), axis=1)
             cl = LDA_KM_DA(pseudoLabels, cmtsX[test], eps=0.01, yTest=Y[test].astype(int), maxEpochs=100, plotResults=False)
             score.append(np.mean(Y[test].astype(int) == cl.predict(cmtsX[test])))
         elif testFeatures == "Xdawn CMTS":
@@ -321,7 +323,7 @@ if "MDD -> LDA-KM-DA" in testModels:
             tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
             tsTest = TangentSpace('riemann').fit_transform(xTest)
             cl = fit_MDD(tsTrain, np.concatenate(Y[train]).astype(int), tsTest, hidden=50, epochs=10)
-            pseudoLabels = cl.predict(tsTest)
+            pseudoLabels = np.argmax(cl.predict(tsTest), axis=1)
             cl = LDA_KM_DA(pseudoLabels, cmtsX[test], eps=0.01, yTest=Y[test].astype(int), maxEpochs=100, plotResults=False)
             score.append(np.mean(Y[test].astype(int) == cl.predict(cmtsX[test])))
         print(test, score[-1])
@@ -360,3 +362,10 @@ if "Simplified CDEM -> LDA-KM-DA" in testModels:
         print(test, score[-1])
     print("average score simplified CDEM -> LDA-KM-DA :", np.mean(score))
     scores["simplified CDEM -> LDA-KM-DA"] = score
+
+
+
+print("Results summary ---------------------------------------------------------")
+for model in scores:
+    print(f"{model} : {np.mean(scores[model])}")
+    print(scores[model])

@@ -3,39 +3,38 @@ import tensorflow as tf
 import tensorbayes as tb
 import numpy as np
 from .extra_layers import basic_accuracy, vat_loss
-from DIRTT_codebase.args import args
 from tensorbayes.tfutils import softmax_cross_entropy_with_two_logits as softmax_xent_two
 from tensorbayes.layers import placeholder, constant
 from tensorflow.nn import softmax_cross_entropy_with_logits as softmax_xent
 from tensorflow.nn import sigmoid_cross_entropy_with_logits as sigmoid_xent
+from .nns.simple import *
 
-nn = importlib.import_module(f'DIRTT_codebase.models.nns.{args.nn}')
 
 
-def dirtt(xShape):
+def dirtt(xShape, args):
     T = tb.utils.TensorDict(dict(
         sess=tf.compat.v1.Session(config=tb.growth_config()),
         src_x=placeholder((None, xShape)), #((None, 32, 32, 3)),
-        src_y=placeholder((None, args.Y)),
+        src_y=placeholder((None, args["Y"])),
         trg_x=placeholder((None, xShape)), #((None, 32, 32, 3)),
-        trg_y=placeholder((None, args.Y)),
+        trg_y=placeholder((None, args["Y"])),
         test_x=placeholder((None, xShape)), #((None, 32, 32, 3)),
-        test_y=placeholder((None, args.Y)),
+        test_y=placeholder((None, args["Y"])),
     ))
 
     # Supervised and conditional entropy minimization
-    src_e = nn.classifier(T.src_x, phase=True, enc_phase=1, trim=args.trim)
-    trg_e = nn.classifier(T.trg_x, phase=True, enc_phase=1, trim=args.trim, reuse=True, internal_update=True)
-    src_p = nn.classifier(src_e, phase=True, enc_phase=0, trim=args.trim)
-    trg_p = nn.classifier(trg_e, phase=True, enc_phase=0, trim=args.trim, reuse=True, internal_update=True)
+    src_e = classifier(T.src_x, phase=True, enc_phase=1, trim=args["trim"], args=args)
+    trg_e = classifier(T.trg_x, phase=True, enc_phase=1, trim=args["trim"], reuse=True, internal_update=True, args=args)
+    src_p = classifier(src_e, phase=True, enc_phase=0, trim=args["trim"], args=args)
+    trg_p = classifier(trg_e, phase=True, enc_phase=0, trim=args["trim"], reuse=True, internal_update=True, args=args)
 
     loss_src_class = tf.reduce_mean(softmax_xent(labels=T.src_y, logits=src_p))
     loss_trg_cent = tf.reduce_mean(softmax_xent_two(labels=trg_p, logits=trg_p))
 
     # Domain confusion
-    if args.dw > 0 and args.dirt == 0:
-        real_logit = nn.feature_discriminator(src_e, phase=True)
-        fake_logit = nn.feature_discriminator(trg_e, phase=True, reuse=True)
+    if args["dw"] > 0 and args["dirt"] == 0:
+        real_logit = feature_discriminator(src_e, phase=True)
+        fake_logit = feature_discriminator(trg_e, phase=True, reuse=True)
 
         loss_disc = 0.5 * tf.reduce_mean(
             sigmoid_xent(labels=tf.ones_like(real_logit), logits=real_logit) +
@@ -49,17 +48,17 @@ def dirtt(xShape):
         loss_domain = constant(0)
 
     # Virtual adversarial training (turn off src in non-VADA phase)
-    loss_src_vat = vat_loss(T.src_x, src_p, nn.classifier) if args.sw > 0 and args.dirt == 0 else constant(0)
-    loss_trg_vat = vat_loss(T.trg_x, trg_p, nn.classifier) if args.tw > 0 else constant(0)
+    loss_src_vat = vat_loss(T.src_x, src_p, classifier, args=args) if args["sw"] > 0 and args["dirt"] == 0 else constant(0)
+    loss_trg_vat = vat_loss(T.trg_x, trg_p, classifier, args=args) if args["tw"] > 0 else constant(0)
 
     # Evaluation (EMA)
     ema = tf.train.ExponentialMovingAverage(decay=0.998)
     var_class = tf.compat.v1.get_collection('trainable_variables', 'class/')
     ema_op = ema.apply(var_class)
-    ema_p = nn.classifier(T.test_x, phase=False, reuse=True, getter=tb.tfutils.get_getter(ema))
+    ema_p = classifier(T.test_x, phase=False, reuse=True, getter=tb.tfutils.get_getter(ema), args=args)
 
     # Teacher model (a back-up of EMA model)
-    teacher_p = nn.classifier(T.test_x, phase=False, scope='teacher')
+    teacher_p = classifier(T.test_x, phase=False, scope='teacher', args=args)
     var_main = tf.compat.v1.get_collection('variables', 'class/(?!.*ExponentialMovingAverage:0)')
     var_teacher = tf.compat.v1.get_collection('variables', 'teacher/(?!.*ExponentialMovingAverage:0)')
     teacher_assign_ops = []
@@ -77,10 +76,10 @@ def dirtt(xShape):
     fn_ema_acc = tb.function(T.sess, [T.test_x, T.test_y], ema_acc)
 
     # Optimizer
-    dw = constant(args.dw) if args.dirt == 0 else constant(0)
-    cw = constant(1) if args.dirt == 0 else constant(args.bw)
-    sw = constant(args.sw) if args.dirt == 0 else constant(0)
-    tw = constant(args.tw)
+    dw = constant(args["dw"]) if args["dirt"] == 0 else constant(0)
+    cw = constant(1) if args["dirt"] == 0 else constant(args["bw"])
+    sw = constant(args["sw"]) if args["dirt"] == 0 else constant(0)
+    tw = constant(args["tw"])
     loss_main = (dw * loss_domain +
                  cw * loss_src_class +
                  sw * loss_src_vat +
@@ -88,12 +87,12 @@ def dirtt(xShape):
                  tw * loss_trg_vat)
 
     var_main = tf.compat.v1.get_collection('trainable_variables', 'class')
-    train_main = tf.compat.v1.train.AdamOptimizer(args.lr, 0.5).minimize(loss_main, var_list=var_main)
+    train_main = tf.compat.v1.train.AdamOptimizer(args["lr"], 0.5).minimize(loss_main, var_list=var_main)
     train_main = tf.group(train_main, ema_op)
 
-    if args.dw > 0 and args.dirt == 0:
+    if args["dw"] > 0 and args["dirt"] == 0:
         var_disc = tf.compat.v1.get_collection('trainable_variables', 'disc')
-        train_disc = tf.compat.v1.train.AdamOptimizer(args.lr, 0.5).minimize(loss_disc, var_list=var_disc)
+        train_disc = tf.compat.v1.train.AdamOptimizer(args["lr"], 0.5).minimize(loss_disc, var_list=var_disc)
     else:
         train_disc = constant(0)
 

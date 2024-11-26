@@ -54,6 +54,7 @@ def fit_MDD(xs, ys, xt, hidden=10, epochs=20):
     :param epochs: number of epochs to train the MDD model
     :return: trained classifier
     """
+
     nclasses = len(np.unique(ys))
     ohe = OneHotEncoder().fit(ys.reshape(-1, 1))
     ys = ohe.transform(ys.reshape(-1, 1)).toarray()

@@ -49,7 +49,7 @@ def load_ninaproDB4(folderPath):
     allDataE2 = []
     for subject in subjects:
         allDataE1.append(scipy.io.loadmat(f"{folderPath}/S{subject}_E1_A1.mat"))
-        allDataE2.append(scipy.io.loadmat(f"{scipy}/S{subject}_E2_A1.mat"))
+        allDataE2.append(scipy.io.loadmat(f"{folderPath}/S{subject}_E2_A1.mat"))
     Q = 30  # Quality factor for notch filter
     f0 = 50  # Frequency to be removed (Hz)
     harmonic_freqs = np.arange(f0, 401, f0)

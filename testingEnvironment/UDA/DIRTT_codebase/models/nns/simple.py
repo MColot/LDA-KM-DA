@@ -1,6 +1,5 @@
 import tensorflow as tf
-from DIRTT_codebase.args import args
-from DIRTT_codebase.models.extra_layers import leaky_relu, noise, logistic
+from ..extra_layers import leaky_relu
 from tensorbayes.layers import dense, conv2d, batch_norm
 from contextlib import contextmanager
 
@@ -19,7 +18,7 @@ def arg_scope(layer_funcs, **kwargs):
             setattr(layer_func, key, value)
 
 
-def classifier(x, phase, enc_phase=1, trim=0, scope='class', reuse=None, internal_update=False, getter=None):
+def classifier(x, phase, enc_phase=1, trim=0, args=None, scope='class', reuse=None, internal_update=False, getter=None):
     with tf.compat.v1.variable_scope(scope, reuse=reuse, custom_getter=getter):
         with arg_scope([leaky_relu], a=0.1), \
              arg_scope([conv2d, dense], activation=leaky_relu, bn=True, phase=phase), \
@@ -29,7 +28,7 @@ def classifier(x, phase, enc_phase=1, trim=0, scope='class', reuse=None, interna
             layout = [
                 (dense, (64,), dict(activation=leaky_relu)),
                 (dense, (8,), dict(activation=None)),
-                (dense, (args.Y,), dict(activation=None))
+                (dense, (args["Y"],), dict(activation=None))
             ]
 
             # LDA-KM-DA-like layout
