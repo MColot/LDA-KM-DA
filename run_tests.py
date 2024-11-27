@@ -66,6 +66,9 @@ if __name__ == "__main__":
         X, Y = load_EMG_EPN_612(pathToEmgEpn612)
     assert X is not None and Y is not None
 
+    X = np.array(X, dtype="object")
+    Y = np.array(Y, dtype="object")
+
 
     tdfX = computeTDF(X)  # TDF features
     tdfX_n = normalizeTDF(tdfX)  # normalized TDF features
@@ -136,12 +139,12 @@ if __name__ == "__main__":
                 cl.fit(np.concatenate([x for x in cmtsX[train]]), np.concatenate([y for y in Y[train]]).astype(int))
                 score.append(np.mean(Y[test].astype(int) == cl.predict(cmtsX[test])))
             elif testFeatures == "Xdawn CMTS":
-                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train].astype(int)))
+                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train]).astype(int))
                 xTrain = [cov.transform(x) for x in X[train]]
                 xTest = cov.transform(X[test])
                 tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
                 tsTest = TangentSpace('riemann').fit_transform(xTest)
-                cl = LogisticRegression('l2', solver="liblinear").fit(tsTrain, np.concatenate(Y[train].astype(int)))
+                cl = LogisticRegression('l2', solver="liblinear").fit(tsTrain, np.concatenate(Y[train]).astype(int))
                 score.append(np.mean(Y[test].astype(int) == cl.predict(tsTest)))
             print(test, score[-1])
         print("average score normalization :", np.mean(score))
@@ -159,7 +162,7 @@ if __name__ == "__main__":
                 cl = fit_MDD(np.concatenate(cmtsX[train]), np.concatenate(Y[train]).astype(int), cmtsX[test], hidden=50, epochs=20)
                 score.append(np.mean(Y[test].astype(int) == np.argmax(cl.predict(cmtsX[test]), axis=1)))
             elif testFeatures == "Xdawn CMTS":
-                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train].astype(int)))
+                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train]).astype(int))
                 xTrain = [cov.transform(x) for x in X[train]]
                 xTest = cov.transform(X[test])
                 tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
@@ -189,7 +192,7 @@ if __name__ == "__main__":
                 pred = CDEM(np.concatenate(cmtsX[train]), np.concatenate(Y[train]).astype(int), cmtsX[test], Y[test].astype(int), 10, 10, False, options)
                 score.append(np.mean(Y[test].astype(int) == pred))
             elif testFeatures == "Xdawn CMTS":
-                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train].astype(int)))
+                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train]).astype(int))
                 xTrain = [cov.transform(x) for x in X[train]]
                 xTest = cov.transform(X[test])
                 tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
@@ -219,7 +222,7 @@ if __name__ == "__main__":
                 pred = CDEM(np.concatenate(cmtsX[train]), np.concatenate(Y[train]).astype(int), cmtsX[test], Y[test].astype(int), 10, 10, True, options)
                 score.append(np.mean(Y[test].astype(int) == pred))
             elif testFeatures == "Xdawn CMTS":
-                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train].astype(int)))
+                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train]).astype(int))
                 xTrain = [cov.transform(x) for x in X[train]]
                 xTest = cov.transform(X[test])
                 tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
@@ -257,7 +260,7 @@ if __name__ == "__main__":
                 scoreVADA.append(np.mean(Y[test].astype(int) == predVada))
                 scoreDIRTT.append(np.mean(Y[test].astype(int) == predDirtt))
             elif testFeatures == "Xdawn CMTS":
-                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train].astype(int)))
+                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train]).astype(int))
                 xTrain = [cov.transform(x) for x in X[train]]
                 xTest = cov.transform(X[test])
                 tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
@@ -292,12 +295,12 @@ if __name__ == "__main__":
                 cl = LDA_KM_DA(pseudoLabels, cmtsX[test], eps=0.01, yTest=Y[test].astype(int), maxEpochs=100, plotResults=False)
                 score.append(np.mean(Y[test].astype(int) == cl.predict(cmtsX[test])))
             elif testFeatures == "Xdawn CMTS":
-                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train].astype(int)))
+                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train]).astype(int))
                 xTrain = [cov.transform(x) for x in X[train]]
                 xTest = cov.transform(X[test])
                 tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
                 tsTest = TangentSpace('riemann').fit_transform(xTest)
-                cl = LogisticRegression('l2', solver="liblinear").fit(tsTrain, np.concatenate(Y[train].astype(int)))
+                cl = LogisticRegression('l2', solver="liblinear").fit(tsTrain, np.concatenate(Y[train]).astype(int))
                 pseudoLabels = cl.predict(tsTest)
                 cl = LDA_KM_DA(pseudoLabels, cmtsX[test], eps=0.01, yTest=Y[test].astype(int), maxEpochs=100, plotResults=False)
                 score.append(np.mean(Y[test].astype(int) == cl.predict(cmtsX[test])))
@@ -321,7 +324,7 @@ if __name__ == "__main__":
                 cl = LDA_KM_DA(pseudoLabels, cmtsX[test], eps=0.01, yTest=Y[test].astype(int), maxEpochs=100, plotResults=False)
                 score.append(np.mean(Y[test].astype(int) == cl.predict(cmtsX[test])))
             elif testFeatures == "Xdawn CMTS":
-                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train].astype(int)))
+                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train]).astype(int))
                 xTrain = [cov.transform(x) for x in X[train]]
                 xTest = cov.transform(X[test])
                 tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
@@ -355,7 +358,7 @@ if __name__ == "__main__":
                 cl = LDA_KM_DA(pseudoLabels, cmtsX[test], eps=0.01, yTest=Y[test].astype(int), maxEpochs=100, plotResults=False)
                 score.append(np.mean(Y[test].astype(int) == cl.predict(cmtsX[test])))
             elif testFeatures == "Xdawn CMTS":
-                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train].astype(int)))
+                cov = XdawnCovariances(nfilter=3, estimator='oas').fit(np.concatenate(X[train]), np.concatenate(Y[train]).astype(int))
                 xTrain = [cov.transform(x) for x in X[train]]
                 xTest = cov.transform(X[test])
                 tsTrain = np.concatenate([TangentSpace('riemann').fit_transform(x) for x in xTrain])
