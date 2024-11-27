@@ -15,10 +15,23 @@ from .DIRTT_codebase.train import train
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 import pathlib
+import multiprocessing
 
+def run_VADA_DIRTT(xs, ys, xt, yt, nclasses, saveDirectory, dirt = 0, lr = 0.001, tw=0.01, epochs=10, batchPerEpoch=1000, multiProcessing=False):
+    """
+    Runs VADA or DIRT-T in a separate process if necessary to ensure right version of tensorflow when other library are used
+    """
+    if multiProcessing:
+        queue = multiprocessing.Queue()
+        p1 = multiprocessing.Process(target=VADA_DIRTT, args=(xs, ys, xt, yt, nclasses, saveDirectory, dirt, lr, tw, epochs, batchPerEpoch, queue))
+        print("starting subprocess (this operation might take time)")
+        p1.start()
+        p1.join()
+        return queue.get()
+    else:
+        return VADA_DIRTT(xs, ys, xt, yt, nclasses, saveDirectory, dirt, lr, tw, epochs, batchPerEpoch)
 
-
-def VADA_DIRTT(xs, ys, xt, yt, nclasses, saveDirectory, dirt = 0, lr = 0.001, tw=0.01, epochs=10, batchPerEpoch=1000):
+def VADA_DIRTT(xs, ys, xt, yt, nclasses, saveDirectory, dirt = 0, lr = 0.001, tw=0.01, epochs=10, batchPerEpoch=1000, queue=None):
     """
 
     :param xs: features vectors from the source domain
@@ -32,15 +45,15 @@ def VADA_DIRTT(xs, ys, xt, yt, nclasses, saveDirectory, dirt = 0, lr = 0.001, tw
     :param tw: target weight = how much the classifier should be stable on target samples with respect to small perturbations
     :param epochs: number of epochs
     :param batchPerEpoch : number of batches per epoch
-    :return: trained model and prediction of labels of the target samples (xt)
+    :param queue : results for multiprocessing
+    :return: prediction of labels of the target samples (xt)
     """
-
+    tf.compat.v1.disable_eager_execution()
 
     ohe = OneHotEncoder(sparse_output=False).fit(ys.reshape(-1, 1))
     ys = ohe.transform(ys.reshape(-1, 1))
     yt = ohe.transform(yt.reshape(-1, 1))
 
-    #parameters values from DIRT-T paper
     args = dict()
     args["inorm"] = 1
     args["radius"] = 3.5
@@ -95,11 +108,11 @@ def VADA_DIRTT(xs, ys, xt, yt, nclasses, saveDirectory, dirt = 0, lr = 0.001, tw
     trg = Dataset(xt, yt)
 
     train(M, saveDirectory, src, trg, has_disc=args["dirt"] == 0, iterep=batchPerEpoch, n_epoch=epochs, bs=64, saver=saver, args=args)
-
     pred = M.teacher(trg.train.images)
 
-
-    return M, np.argmax(pred, axis=1)
+    if queue is not None:
+        queue.put(np.argmax(pred, axis=1))
+    return np.argmax(pred, axis=1)
 
 
 
@@ -155,9 +168,9 @@ if __name__ == "__main__":
 
         lr = 0.01
         tf.compat.v1.reset_default_graph()
-        vadaModel, predVada = VADA_DIRTT(np.concatenate(x[train]), np.concatenate(y[train]), x[test], y[test], 3, saveDirectory, 0, lr, 0.01, 10, 300)
+        predVada = VADA_DIRTT(np.concatenate(x[train]), np.concatenate(y[train]), x[test], y[test], 3, saveDirectory, 0, lr, 0.01, 10, 300)
         tf.compat.v1.reset_default_graph()
-        dirttModel, predDirtt = VADA_DIRTT(np.concatenate(x[train]), np.concatenate(y[train]), x[test], y[test], 3, saveDirectory, 600, lr, 0.01, 10, 300)
+        predDirtt = VADA_DIRTT(np.concatenate(x[train]), np.concatenate(y[train]), x[test], y[test], 3, saveDirectory, 600, lr, 0.01, 10, 300)
 
         accCross.append(np.mean(y[test] == pred))
         accVADA.append(np.mean(y[test] == predVada))

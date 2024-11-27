@@ -4,6 +4,28 @@ from sklearn.cluster import KMeans
 from sklearn.pipeline import Pipeline
 import matplotlib.pyplot as plt
 
+from sklearn.base import BaseEstimator, TransformerMixin
+
+# Custom transformer to remap cluster labels
+# Define a step to run KMeans predict and then remap
+class KMeansWithMapping(BaseEstimator, TransformerMixin):
+    def __init__(self, kmeans, class_mapping):
+        self.kmeans = kmeans
+        self.class_mapping = class_mapping
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        # Predict clusters
+        cluster_indices = self.kmeans.predict(X)
+        # Map clusters to original class labels
+        return np.vectorize(self.class_mapping.get)(cluster_indices)
+
+    def predict(self, X):
+        # Call transform to perform predict + mapping
+        return self.transform(X)
+
 
 def LDA_KM_DA(predInit, xTest, eps=0.01, yTest=None, maxEpochs=100, plotResults=False):
     """
@@ -21,6 +43,7 @@ def LDA_KM_DA(predInit, xTest, eps=0.01, yTest=None, maxEpochs=100, plotResults=
     lastPred = predInit
     diff = 1
     epochsCount = 0
+    classes = np.unique(predInit)
     if yTest is not None:
         print("Initial accuracy :", np.mean(pred == yTest))
     while diff > eps and epochsCount < maxEpochs:
@@ -29,7 +52,8 @@ def LDA_KM_DA(predInit, xTest, eps=0.01, yTest=None, maxEpochs=100, plotResults=
             lda = LDA(n_components=nclasses - 1, shrinkage="auto", solver="eigen").fit(xTest, pred)
             newProj = lda.transform(xTest)
             pred = KMeans(n_clusters=nclasses, n_init=1,
-                          init=[np.mean(newProj[pred == x], axis=0) for x in range(nclasses)]).fit(newProj).labels_
+                          init=[np.mean(newProj[pred == x], axis=0) for x in classes]).fit(newProj).labels_
+            pred = np.array([c for c in classes])[pred]
             if plotResults:
                 projEvol.append(newProj)
                 predEvol.append(pred)
@@ -39,15 +63,16 @@ def LDA_KM_DA(predInit, xTest, eps=0.01, yTest=None, maxEpochs=100, plotResults=
             if yTest is not None:
                 print(f"Adapted accuracy after {epochsCount} iterations :", np.mean(pred == yTest))
         except Exception as e:
-            print(e)
+            print(f"LDA-KM-DA has found less than {len(classes)} classes in the data. The adapted classifier might be wrong")
             break
     nclasses = len(np.unique(pred))
     finalLDA = LDA(n_components=nclasses - 1, shrinkage="auto", solver="eigen").fit(xTest, pred)
     finalProj = finalLDA.transform(xTest)
     finalKMeans = KMeans(n_clusters=nclasses, n_init=1,
-                         init=[np.mean(finalProj[pred == x], axis=0) for x in range(nclasses)]).fit(finalProj)
+                         init=[np.mean(finalProj[pred == x], axis=0) for x in classes]).fit(finalProj)
+    clusterToClass = {i: classes[i] for i in range(len(classes))}
     cl = Pipeline([("lda", finalLDA),
-                   ("K-means", finalKMeans)])
+                   ("K-means", KMeansWithMapping(kmeans=finalKMeans, class_mapping=clusterToClass))])
 
     if plotResults and yTest is not None:
         fig, ax = plt.subplots(2, len(predEvol), figsize=(5*len(predEvol), 10))

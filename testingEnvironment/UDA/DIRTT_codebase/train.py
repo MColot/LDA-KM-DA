@@ -6,8 +6,7 @@ from .utils import delete_existing, save_value, save_model
 import os
 import numpy as np
 
-# Disable eager execution (for TensorFlow 1.x compatbility in TensorFlow 2)
-tf.disable_eager_execution()
+
 
 def update_dict(M, feed_dict, src=None, trg=None, bs=100):
     """Update feed_dict with new mini-batch
