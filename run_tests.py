@@ -32,11 +32,11 @@ if __name__ == "__main__":
 
     # Edit these paths for the chosen datasets
     pathToNinaproDB4 = None
-    pathToToroOssaba = "C:/Users/marti/Documents/phd/papers/LDA-KM-DA-EMG/benchmark/dataset_ref"
+    pathToToroOssaba = None
     pathToEmgEpn612 = None
 
     datasets = ["ninaproDB4", "ToroOssaba", "EMG_EPN_612"]
-    testDataset = datasets[1]  # Edit this to change the test dataset
+    testDataset = datasets[0]  # Edit this to change the test dataset
 
     featureSets = ["TDF", "CMTS", "Xdawn CMTS"]
     testFeatures = featureSets[0]  # Edit this to change the feature sets used
@@ -52,10 +52,8 @@ if __name__ == "__main__":
               8: "MDD -> LDA-KM-DA",
               9: "Simplified CDEM -> LDA-KM-DA"}
     testModels = [models[0], models[1], models[2], models[7]]  # change this to choose which model to evaluate
-    testModels = [models[e] for e in models.keys()]
-    testModels = [models[8]]
 
-    saveDirectoryDIRTT = "C:/Users/marti/Documents/phd/publicCode/LDA-KM-DA/testingEnvironment/UDA/DIRTT_codebase/save" #set this directory to run VADA and DIRT-T. The VADA network will be saved at this location before being used to initialize DIRT-T
+    saveDirectoryDIRTT = None #set this directory to run VADA and DIRT-T. The VADA network will be saved at this location before being used to initialize DIRT-T
 
     # -------------- EVALUATION ----------------------------------------------------------------------------
 
@@ -92,7 +90,7 @@ if __name__ == "__main__":
                     [('cov', XdawnCovariances(nfilter=3, estimator='oas')),
                      ('ts', TangentSpace('riemann')),
                      ("lr", LogisticRegression('l2', solver="liblinear"))])
-                score.append(cross_val_score(pipelineXdawnCMTS, X[s], Y[s].astype(int), cv=KFold(n_splits=5, shuffle=False)))
+                score.append(cross_val_score(pipelineXdawnCMTS, X[s], Y[s].astype(int), cv=KFold(n_splits=5, shuffle=True))) # set shuffle to false when using sliding windows
             print(s, score[-1])
         print("average score Intra-subject :", np.mean(score))
         scores["Intra-subject"] = score

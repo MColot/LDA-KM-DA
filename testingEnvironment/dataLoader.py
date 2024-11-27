@@ -147,7 +147,6 @@ def load_EMG_EPN_612(folderPath):
     X = []
     Y = []
     for user in range(1, 105):  # we only keep the first 100 clean subjects from the 307 available in the training dataset
-        print(user)
         file = f"{folderPath}/trainingJSON/user{user}/user{user}.json"
         try:
             f = open(file)
