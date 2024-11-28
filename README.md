@@ -1,4 +1,4 @@
-# LDA-KM-DA for Unsupervised Domain Adaptation
+# LDA-KM-DA : Unsupervised Domain Adaptation for Cross-subject Gesture Recognition from EMG Signal
 
 This directory contains the code for the paper "Linear Non-conservative Unsupervised Domain Adaptation Applied In Cross-Subject EMG Gesture Recognition"
 Please refer to our paper for the technical details.
