@@ -3,7 +3,7 @@
 This directory contains the code for the paper "Linear Non-conservative Unsupervised Domain Adaptation Applied In Cross-Subject EMG Gesture Recognition"
 Please refer to our paper for the technical details.
 
-![graphicalAbtract_3_onlyPartB](https://github.com/user-attachments/assets/0d11dc41-161d-40c4-a4fa-beb5b69c1adc)
+![graphicalAbtract_3_onlyPartB](https://github.com/user-attachments/assets/c958576f-b2df-455a-b45e-f17d21424b3e)
 
 # Code and data
 
@@ -20,7 +20,7 @@ The state-of-the-art methods discussed in the paper (MDD, CDEM, Simplified CDEM,
 
 The results obtained on the 3 public datasets that are presented in the paper can be reproduced using the code in this directory
 
-![boxplotClassification4Datasets](https://github.com/user-attachments/assets/e118c64f-7f55-40f8-a1dc-b86a1f12c1b2)
+![boxplotClassification4Datasets_whiteBackground](https://github.com/user-attachments/assets/c5e89513-351f-4923-ad87-2f7c7bab5e3c)
 
 # Dependencies
 For MDD, install tf_keras
