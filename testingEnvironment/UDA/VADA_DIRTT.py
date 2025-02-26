@@ -158,19 +158,19 @@ if __name__ == "__main__":
     accVADA = []
     accDIRTT = []
     for test in range(nSubjects):
-        train = np.arange(nSubjects)
-        train = np.delete(train, test)
+        trainIds = np.arange(nSubjects)
+        trainIds = np.delete(trainIds, test)
 
-        cl = LogisticRegression("l2", solver="liblinear").fit(np.concatenate(x[train]), np.concatenate(y[train]))
+        cl = LogisticRegression("l2", solver="liblinear").fit(np.concatenate(x[trainIds]), np.concatenate(y[trainIds]))
         pred = cl.predict(x[test])
 
         saveDirectory = str(pathlib.Path(__file__).parent.resolve()) + "/DIRTT_codebase/save"
 
         lr = 0.01
         tf.compat.v1.reset_default_graph()
-        predVada = VADA_DIRTT(np.concatenate(x[train]), np.concatenate(y[train]), x[test], y[test], 3, saveDirectory, 0, lr, 0.01, 10, 300)
+        predVada = VADA_DIRTT(np.concatenate(x[trainIds]), np.concatenate(y[trainIds]), x[test], y[test], 3, saveDirectory, 0, lr, 0.01, 10, 300)
         tf.compat.v1.reset_default_graph()
-        predDirtt = VADA_DIRTT(np.concatenate(x[train]), np.concatenate(y[train]), x[test], y[test], 3, saveDirectory, 600, lr, 0.01, 10, 300)
+        predDirtt = VADA_DIRTT(np.concatenate(x[trainIds]), np.concatenate(y[trainIds]), x[test], y[test], 3, saveDirectory, 600, lr, 0.01, 10, 300)
 
         accCross.append(np.mean(y[test] == pred))
         accVADA.append(np.mean(y[test] == predVada))
